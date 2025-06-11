@@ -26,40 +26,26 @@ export async function loadModel() {
   return model;
 }
 
-export async function classifyFood(imageElement: HTMLImageElement) {
-  try {
-    const model = await loadModel();
-    const predictions = await model.classify(imageElement, 5);
-    
-    // 예측 결과를 분석하여 가장 적합한 음식 찾기
-    const foodPredictions = predictions.map(pred => {
-      const foodName = pred.className.toLowerCase();
-      const confidence = pred.probability;
-      
-      // 데이터베이스에서 가장 유사한 음식 찾기
-      const matchedFood = Object.entries(foodDatabase).find(([name]) => 
-        foodName.includes(name.toLowerCase())
-      );
+export interface FoodInfo {
+  name: string;
+  calories: number;
+  confidence: number;
+  portion: string;
+}
 
-      return matchedFood 
-        ? { 
-            name: matchedFood[0],
-            ...matchedFood[1],
-            confidence
-          }
-        : null;
-    }).filter(Boolean);
+// 임시로 음식을 인식하는 함수입니다.
+// 실제 구현에서는 ML 모델이나 외부 API를 사용하여 구현해야 합니다.
+export async function classifyFood(imageFile: File): Promise<FoodInfo> {
+  // 실제 구현에서는 이미지를 분석하여 결과를 반환해야 합니다.
+  // 현재는 테스트를 위한 더미 데이터를 반환합니다.
+  await new Promise(resolve => setTimeout(resolve, 2000)); // 분석 시간 시뮬레이션
 
-    return foodPredictions[0] || {
-      name: '알 수 없는 음식',
-      calories: 0,
-      cuisine: '미분류',
-      confidence: 0
-    };
-  } catch (error) {
-    console.error('Food classification error:', error);
-    throw new Error('음식을 인식하는 중 오류가 발생했습니다.');
-  }
+  return {
+    name: "김치볶음밥",
+    calories: 500,
+    confidence: 0.95,
+    portion: "1인분 (300g)"
+  };
 }
 
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
