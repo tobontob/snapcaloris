@@ -21,23 +21,26 @@ async function initializeTensorFlow() {
   console.log('사용 중인 TensorFlow 백엔드:', tf.getBackend());
 }
 
-// 음식 데이터베이스 확장
+// 음식 데이터베이스 확장 및 키워드 매핑 개선
 const foodDatabase = {
   // 한식
-  'bibimbap': { name: '비빔밥', calories: 600, cuisine: '한식' },
+  'rice': { name: '밥', calories: 300, cuisine: '한식' },
+  'bowl': { name: '비빔밥', calories: 600, cuisine: '한식' },
   'kimchi': { name: '김치', calories: 15, cuisine: '한식' },
-  'kimchi fried rice': { name: '김치볶음밥', calories: 500, cuisine: '한식' },
-  'bulgogi': { name: '불고기', calories: 450, cuisine: '한식' },
-  'korean soup': { name: '국물요리', calories: 300, cuisine: '한식' },
+  'soup': { name: '국물요리', calories: 300, cuisine: '한식' },
+  'noodle': { name: '국수', calories: 400, cuisine: '한식' },
   
   // 양식
+  'burger': { name: '햄버거', calories: 550, cuisine: '양식' },
   'hamburger': { name: '햄버거', calories: 550, cuisine: '양식' },
   'pizza': { name: '피자', calories: 266, cuisine: '양식' },
   'pasta': { name: '파스타', calories: 400, cuisine: '양식' },
   'steak': { name: '스테이크', calories: 450, cuisine: '양식' },
+  'sandwich': { name: '샌드위치', calories: 350, cuisine: '양식' },
   
   // 중식
-  'noodle': { name: '짜장면', calories: 785, cuisine: '중식' },
+  'chinese': { name: '중식', calories: 500, cuisine: '중식' },
+  'noodles': { name: '짜장면', calories: 785, cuisine: '중식' },
   'fried rice': { name: '볶음밥', calories: 500, cuisine: '중식' },
   'dumpling': { name: '만두', calories: 400, cuisine: '중식' },
   
@@ -45,6 +48,7 @@ const foodDatabase = {
   'sushi': { name: '스시', calories: 350, cuisine: '일식' },
   'ramen': { name: '라멘', calories: 450, cuisine: '일식' },
   'tempura': { name: '텐푸라', calories: 450, cuisine: '일식' },
+  'japanese': { name: '일식', calories: 400, cuisine: '일식' },
 };
 
 let model: mobilenet.MobileNet | null = null;
@@ -86,7 +90,10 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
     const image = await createImageFromFile(imageFile);
     
     // 이미지 분석
-    const predictions = await loadedModel.classify(image, 5);
+    const predictions = await loadedModel.classify(image, 10); // 상위 10개 결과로 증가
+    
+    // 디버깅을 위해 예측 결과 출력
+    console.log('MobileNet 예측 결과:', predictions);
     
     // 가장 높은 신뢰도를 가진 음식 찾기
     let bestMatch: FoodInfo | null = null;
@@ -94,19 +101,25 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
 
     for (const prediction of predictions) {
       const className = prediction.className.toLowerCase();
-      // 예측된 클래스명에서 음식을 찾기
-      for (const [key, value] of Object.entries(foodDatabase)) {
-        if (className.includes(key)) {
-          const confidence = prediction.probability;
-          if (confidence > highestConfidence) {
-            highestConfidence = confidence;
-            bestMatch = {
-              name: value.name,
-              calories: value.calories,
-              confidence: confidence,
-              cuisine: value.cuisine,
-              portion: "1인분"
-            };
+      console.log('분석 중인 클래스:', className);
+      
+      // 예측된 클래스의 각 단어에 대해 매칭 시도
+      const words = className.split(/[\s,]+/);
+      for (const word of words) {
+        for (const [key, value] of Object.entries(foodDatabase)) {
+          if (word.includes(key) || key.includes(word)) {
+            const confidence = prediction.probability;
+            console.log('매칭된 음식:', key, '신뢰도:', confidence);
+            if (confidence > highestConfidence) {
+              highestConfidence = confidence;
+              bestMatch = {
+                name: value.name,
+                calories: value.calories,
+                confidence: confidence,
+                cuisine: value.cuisine,
+                portion: "1인분"
+              };
+            }
           }
         }
       }
@@ -114,6 +127,7 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
 
     // 매칭되는 음식을 찾지 못한 경우
     if (!bestMatch) {
+      console.log('매칭되는 음식을 찾지 못했습니다.');
       return {
         name: "알 수 없는 음식",
         calories: 0,
@@ -122,6 +136,7 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
       };
     }
 
+    console.log('최종 선택된 음식:', bestMatch);
     return bestMatch;
   } catch (error) {
     console.error('Food classification error:', error);
