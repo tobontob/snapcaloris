@@ -125,28 +125,26 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
       throw new Error('이미지에서 음식을 찾을 수 없습니다. 다른 이미지를 시도해보세요.');
     }
 
-    // 가장 높은 확률의 예측 결과 가져오기
-    const bestMatch = result.predictions[0];
-    
-    // 데이터베이스에서 음식 정보 찾기
-    const foodInfo = findFoodInDatabase(bestMatch.name);
-    
-    if (!foodInfo) {
-      return {
-        name: bestMatch.name,
-        probability: bestMatch.probability,
-        calories: 0,
-        portion: '알 수 없음'
-      };
+    // 예측 결과를 순회하며 매칭되는 음식이 있으면 바로 반환
+    for (const prediction of result.predictions) {
+      const foodInfo = findFoodInDatabase(prediction.name);
+      if (foodInfo) {
+        return {
+          name: foodInfo.name,
+          probability: prediction.probability,
+          calories: foodInfo.calories,
+          portion: foodInfo.portion || '1인분'
+        };
+      }
     }
-
+    // 매칭되는 음식이 없으면 첫 번째 예측 결과 반환
+    const bestMatch = result.predictions[0];
     return {
-      name: foodInfo.name,
+      name: bestMatch.name,
       probability: bestMatch.probability,
-      calories: foodInfo.calories,
-      portion: foodInfo.portion || '1인분'
+      calories: 0,
+      portion: '알 수 없음'
     };
-
   } catch (error: any) {
     console.error('음식 인식 중 오류:', error);
     throw new Error(error.message || '음식 인식 중 오류가 발생했습니다.');

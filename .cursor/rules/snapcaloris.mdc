@@ -3,6 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
+agent로 질문할때는 항상 수정 또는 코딩 제안만 하지 말고 바로 수정 및 코딩해주세요.
 해당 프로젝트는 vercel 외부서버로 배포할 프로젝트 인걸 명심하십시요.
 
 코딩할때 항상 vercel 배포를 고려하여 주시기 바랍니다.
