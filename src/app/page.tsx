@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import ImageUpload from '@/components/ImageUpload';
 import { classifyFood, type FoodInfo } from '@/lib/food-recognition';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 export default function Home() {
   const [foodInfo, setFoodInfo] = useState<FoodInfo | null>(null);
@@ -26,6 +27,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 py-12 px-4">
+      {isLoading && <LoadingOverlay />}
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -42,17 +44,6 @@ export default function Home() {
 
         <div className="max-w-2xl mx-auto space-y-8">
           <ImageUpload onImageSelect={handleImageSelect} />
-
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center"
-            >
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-              <p className="mt-4 text-gray-600">음식을 분석하고 있습니다...</p>
-            </motion.div>
-          )}
 
           {error && (
             <motion.div
