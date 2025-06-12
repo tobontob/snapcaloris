@@ -1,17 +1,30 @@
 import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 
-// 한식, 중식, 일식, 양식 음식 데이터베이스
+// 음식 데이터베이스 확장
 const foodDatabase = {
-  // 실제 구현시 더 많은 음식 데이터 추가 필요
-  '비빔밥': { calories: 600, cuisine: '한식' },
-  '김치찌개': { calories: 350, cuisine: '한식' },
-  '짜장면': { calories: 785, cuisine: '중식' },
-  '마파두부': { calories: 420, cuisine: '중식' },
-  '스시': { calories: 350, cuisine: '일식' },
-  '라멘': { calories: 450, cuisine: '일식' },
-  '피자': { calories: 266, cuisine: '양식' }, // 1조각 기준
-  '파스타': { calories: 400, cuisine: '양식' },
+  // 한식
+  'bibimbap': { name: '비빔밥', calories: 600, cuisine: '한식' },
+  'kimchi': { name: '김치', calories: 15, cuisine: '한식' },
+  'kimchi fried rice': { name: '김치볶음밥', calories: 500, cuisine: '한식' },
+  'bulgogi': { name: '불고기', calories: 450, cuisine: '한식' },
+  'korean soup': { name: '국물요리', calories: 300, cuisine: '한식' },
+  
+  // 양식
+  'hamburger': { name: '햄버거', calories: 550, cuisine: '양식' },
+  'pizza': { name: '피자', calories: 266, cuisine: '양식' },
+  'pasta': { name: '파스타', calories: 400, cuisine: '양식' },
+  'steak': { name: '스테이크', calories: 450, cuisine: '양식' },
+  
+  // 중식
+  'noodle': { name: '짜장면', calories: 785, cuisine: '중식' },
+  'fried rice': { name: '볶음밥', calories: 500, cuisine: '중식' },
+  'dumpling': { name: '만두', calories: 400, cuisine: '중식' },
+  
+  // 일식
+  'sushi': { name: '스시', calories: 350, cuisine: '일식' },
+  'ramen': { name: '라멘', calories: 450, cuisine: '일식' },
+  'tempura': { name: '텐푸라', calories: 450, cuisine: '일식' },
 };
 
 let model: mobilenet.MobileNet | null = null;
@@ -34,19 +47,72 @@ export interface FoodInfo {
   cuisine?: string;
 }
 
-// 임시로 음식을 인식하는 함수입니다.
-// 실제 구현에서는 ML 모델이나 외부 API를 사용하여 구현해야 합니다.
+// 이미지를 분석하여 음식을 인식하는 함수
 export async function classifyFood(imageFile: File): Promise<FoodInfo> {
-  // 실제 구현에서는 이미지를 분석하여 결과를 반환해야 합니다.
-  // 현재는 테스트를 위한 더미 데이터를 반환합니다.
-  await new Promise(resolve => setTimeout(resolve, 2000)); // 분석 시간 시뮬레이션
+  try {
+    // 모델 로드
+    const loadedModel = await loadModel();
+    
+    // File을 이미지로 변환
+    const image = await createImageFromFile(imageFile);
+    
+    // 이미지 분석
+    const predictions = await loadedModel.classify(image, 5);
+    
+    // 가장 높은 신뢰도를 가진 음식 찾기
+    let bestMatch: FoodInfo | null = null;
+    let highestConfidence = 0;
 
-  return {
-    name: "김치볶음밥",
-    calories: 500,
-    confidence: 0.95,
-    portion: "1인분 (300g)"
-  };
+    for (const prediction of predictions) {
+      const className = prediction.className.toLowerCase();
+      // 예측된 클래스명에서 음식을 찾기
+      for (const [key, value] of Object.entries(foodDatabase)) {
+        if (className.includes(key)) {
+          const confidence = prediction.probability;
+          if (confidence > highestConfidence) {
+            highestConfidence = confidence;
+            bestMatch = {
+              name: value.name,
+              calories: value.calories,
+              confidence: confidence,
+              cuisine: value.cuisine,
+              portion: "1인분"
+            };
+          }
+        }
+      }
+    }
+
+    // 매칭되는 음식을 찾지 못한 경우
+    if (!bestMatch) {
+      return {
+        name: "알 수 없는 음식",
+        calories: 0,
+        confidence: 0,
+        portion: "알 수 없음"
+      };
+    }
+
+    return bestMatch;
+  } catch (error) {
+    console.error('Food classification error:', error);
+    throw new Error('음식 인식 중 오류가 발생했습니다.');
+  }
+}
+
+// File 객체를 HTMLImageElement로 변환하는 유틸리티 함수
+async function createImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
