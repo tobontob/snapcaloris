@@ -1,5 +1,25 @@
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgl';
+import '@tensorflow/tfjs-backend-cpu';
 import * as mobilenet from '@tensorflow-models/mobilenet';
+
+// TensorFlow 백엔드 초기화
+async function initializeTensorFlow() {
+  try {
+    // WebGL 백엔드를 우선적으로 사용
+    await tf.setBackend('webgl');
+  } catch (e) {
+    console.warn('WebGL 백엔드 초기화 실패, CPU 백엔드로 전환합니다:', e);
+    try {
+      // WebGL이 실패하면 CPU 백엔드 사용
+      await tf.setBackend('cpu');
+    } catch (e) {
+      console.error('TensorFlow 백엔드 초기화 실패:', e);
+      throw new Error('TensorFlow 초기화에 실패했습니다.');
+    }
+  }
+  console.log('사용 중인 TensorFlow 백엔드:', tf.getBackend());
+}
 
 // 음식 데이터베이스 확장
 const foodDatabase = {
@@ -31,10 +51,19 @@ let model: mobilenet.MobileNet | null = null;
 
 export async function loadModel() {
   if (!model) {
-    model = await mobilenet.load({
-      version: 2,
-      alpha: 1.0,
-    });
+    // TensorFlow 백엔드 초기화
+    await initializeTensorFlow();
+    
+    try {
+      model = await mobilenet.load({
+        version: 2,
+        alpha: 1.0,
+      });
+      console.log('MobileNet 모델 로드 완료');
+    } catch (e) {
+      console.error('MobileNet 모델 로드 실패:', e);
+      throw new Error('이미지 인식 모델 로드에 실패했습니다.');
+    }
   }
   return model;
 }
