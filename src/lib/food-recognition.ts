@@ -30,7 +30,8 @@ export interface FoodInfo {
   name: string;
   calories: number;
   confidence: number;
-  portion: string;
+  portion?: string;
+  cuisine?: string;
 }
 
 // 임시로 음식을 인식하는 함수입니다.
