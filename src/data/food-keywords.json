@@ -1,0 +1,21 @@
+{
+  "한식": {
+    "bibimbap": {
+      "name": "비빔밥",
+      "calories": 600,
+      "keywords": ["bowl", "rice", "mixed", "korean", "vegetables", "bibimbap"]
+    },
+    "kimchi": {
+      "name": "김치",
+      "calories": 15,
+      "keywords": ["kimchi", "fermented", "cabbage", "korean"]
+    }
+  },
+  "중식": {
+    "jajangmyeon": {
+      "name": "짜장면",
+      "calories": 785,
+      "keywords": ["noodles", "black bean", "chinese", "jajangmyeon"]
+    }
+  }
+} 
