@@ -175,10 +175,7 @@ export async function loadModel() {
 
 export interface FoodInfo {
   name: string;
-  calories: number;
-  confidence: number;
-  portion?: string;
-  cuisine?: string;
+  probability: number;
 }
 
 interface FoodData {
@@ -226,108 +223,75 @@ function findFoodInDatabase(foodName: string): FoodData | null {
   return null;
 }
 
-export async function classifyFood(imageFile: File): Promise<FoodInfo> {
-  try {
-    // File을 base64로 변환
-    const base64Image = await fileToBase64(imageFile);
-    
-    // Clarifai API 호출
-    const response = await fetch(`https://api.clarifai.com/v2/models/${FOOD_MODEL_ID}/outputs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${CLARIFAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        inputs: [
-          {
-            data: {
-              image: {
-                base64: base64Image.split(',')[1] // Remove data:image/jpeg;base64, prefix
-              }
-            }
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('API 호출 실패');
-    }
-
-    const result = await response.json();
-    
-    if (!result.outputs?.[0]?.data?.concepts) {
-      throw new Error('API 응답 형식 오류');
-    }
-
-    const concepts = result.outputs[0].data.concepts;
-    console.log('Clarifai 예측 결과:', concepts);
-
-    if (!concepts || concepts.length === 0) {
-      return {
-        name: "알 수 없는 음식",
-        calories: 0,
-        confidence: 0,
-        portion: "알 수 없음"
-      };
-    }
-
-    // 가장 높은 신뢰도를 가진 음식 찾기
-    let bestMatch: FoodInfo | null = null;
-    let highestConfidence = 0;
-
-    for (const concept of concepts) {
-      const foodName = concept.name.toLowerCase();
-      const confidence = concept.value;
-
-      // 데이터베이스에서 매칭되는 음식 찾기
-      for (const [key, foodData] of Object.entries(fullFoodDatabase)) {
-        const keywords = [...(foodData.keywords || []), key.toLowerCase()];
-        if (keywords.some(keyword => foodName.includes(keyword))) {
-          if (confidence > highestConfidence) {
-            highestConfidence = confidence;
-            bestMatch = {
-              name: foodData.name,
-              calories: foodData.calories,
-              confidence: Math.round(confidence * 100),
-              cuisine: foodData.cuisine,
-              portion: "1인분"
-            };
-          }
-        }
-      }
-    }
-
-    if (!bestMatch) {
-      // Clarifai가 인식한 첫 번째 음식 사용
-      const topConcept = concepts[0];
-      return {
-        name: topConcept.name,
-        calories: 0,
-        confidence: Math.round(topConcept.value * 100),
-        portion: "알 수 없음"
-      };
-    }
-
-    return bestMatch;
-  } catch (error) {
-    console.error('Food classification error:', error);
-    throw new Error('음식 인식 중 오류가 발생했습니다.');
-  }
-}
-
 // File을 base64로 변환하는 유틸리티 함수
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve(base64String);
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('이미지 변환 실패'));
+      }
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error('이미지 읽기 실패'));
     reader.readAsDataURL(file);
   });
+}
+
+export async function classifyFood(imageFile: File): Promise<FoodInfo> {
+  try {
+    // 파일 크기 검증
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (imageFile.size > MAX_FILE_SIZE) {
+      throw new Error('이미지 크기가 10MB를 초과합니다.');
+    }
+
+    // 파일 형식 검증
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(imageFile.type)) {
+      throw new Error('지원하지 않는 이미지 형식입니다. (JPEG 또는 PNG만 가능)');
+    }
+
+    // 이미지를 base64로 변환
+    console.log('이미지 변환 시작...');
+    const base64Image = await fileToBase64(imageFile);
+    console.log('이미지 변환 완료');
+
+    // API 요청
+    console.log('API 요청 시작...');
+    const response = await fetch('/api/food-recognition', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ base64Image }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API 응답 에러:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      throw new Error(errorData.error || 'API 호출 실패');
+    }
+
+    const result = await response.json();
+    console.log('API 응답:', result);
+
+    if (!result.predictions?.length) {
+      throw new Error('음식을 인식할 수 없습니다.');
+    }
+
+    // 가장 높은 확률의 예측 반환
+    return result.predictions[0];
+
+  } catch (error: any) {
+    console.error('음식 인식 중 오류:', error);
+    throw new Error(error.message || '음식 인식 중 오류가 발생했습니다.');
+  }
 }
 
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
