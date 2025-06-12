@@ -52,11 +52,4 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
   // portionSize는 1이 기본 1인분
   return Math.round(baseCalories * portionSize);
-}
-
-export type FoodInfo = {
-  name: string;
-  calories: number;
-  cuisine: string;
-  confidence: number;
-}; 
+} 
