@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 
-const CLARIFAI_PAT = process.env.CLARIFAI_PAT;
+const CLARIFAI_PAT = process.env.NEXT_PUBLIC_CLARIFAI_PAT;
 const CLARIFAI_USER_ID = 'clarifai';
 const CLARIFAI_APP_ID = 'main';
 // food-items-v1-detection 모델 사용
-const MODEL_ID = 'food-item-v1-recognition';
-const MODEL_VERSION_ID = '1d5fd481e0cf4826aa72ec3ff049e044';
+const MODEL_ID = 'food-item-recognition';
+const response = await fetch(
+  `https://api.clarifai.com/v2/models/${MODEL_ID}/outputs`,
+  requestOptions
+);
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +20,12 @@ export async function POST(request: Request) {
     }
 
     if (!CLARIFAI_PAT) {
-      return NextResponse.json({ error: 'Clarifai API 키가 설정되지 않았습니다.' }, { status: 500 });
+      console.error('Clarifai API 키가 설정되지 않았습니다. 환경 변수를 확인해주세요:', {
+        NEXT_PUBLIC_CLARIFAI_PAT: !!process.env.NEXT_PUBLIC_CLARIFAI_PAT
+      });
+      return NextResponse.json({ 
+        error: 'Clarifai API 키가 설정되지 않았습니다. .env.local 파일에 NEXT_PUBLIC_CLARIFAI_PAT가 설정되어 있는지 확인해주세요.' 
+      }, { status: 500 });
     }
 
     // base64 데이터에서 실제 이미지 데이터만 추출
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
 
     console.log('Clarifai API 호출 시작...');
     const response = await fetch(
-      `https://api.clarifai.com/v2/models/${MODEL_ID}/versions/${MODEL_VERSION_ID}/outputs`,
+      `https://api.clarifai.com/v2/models/${MODEL_ID}/outputs`,
       requestOptions
     );
     console.log('Clarifai API 호출 완료');
@@ -59,6 +67,7 @@ export async function POST(request: Request) {
     console.log('Clarifai 응답:', JSON.stringify(result, null, 2));
 
     if (!response.ok) {
+      console.error('Clarifai API 에러:', result);
       throw new Error(result.status?.description || 'Clarifai API 호출 실패');
     }
 
@@ -66,6 +75,10 @@ export async function POST(request: Request) {
       name: concept.name,
       probability: concept.value
     })) || [];
+
+    if (!predictions.length) {
+      return NextResponse.json({ error: '음식을 인식할 수 없습니다.' }, { status: 400 });
+    }
 
     return NextResponse.json({ predictions });
 

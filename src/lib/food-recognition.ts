@@ -1,7 +1,7 @@
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import * as mobilenet from '@tensorflow-models/mobilenet';
-import { findFoodInDatabase } from './food-database';
+import { findFoodInDatabase, type FoodData } from './food-database';
 import * as tf from '@tensorflow/tfjs';
 
 // Clarifai 응답 타입 정의
@@ -68,8 +68,6 @@ export interface FoodInfo {
   calories: number;
   portion: string;
 }
-
-// 음식 인식 관련 함수들
 
 // File을 base64로 변환하는 유틸리티 함수
 async function fileToBase64(file: File): Promise<string> {
@@ -158,4 +156,4 @@ export async function classifyFood(imageFile: File): Promise<FoodInfo> {
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
   // portionSize는 1이 기본 1인분
   return Math.round(baseCalories * portionSize);
-} 
+}

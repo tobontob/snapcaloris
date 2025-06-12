@@ -1,4 +1,4 @@
-interface FoodData {
+export interface FoodData {
   name: string;
   calories: number;
   keywords?: string[];
