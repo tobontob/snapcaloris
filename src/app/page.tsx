@@ -87,7 +87,7 @@ export default function Home() {
                   <span className="text-blue-600">{foodInfo.calories} kcal</span>
                 </p>
                 <p className="text-sm text-gray-500">
-                  정확도: {Math.round(foodInfo.confidence * 100)}%
+                  정확도: {Math.round(foodInfo.probability * 100)}%
                 </p>
               </div>
             </motion.div>
