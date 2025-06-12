@@ -25,8 +25,8 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50">
-      <div className="container mx-auto px-4 py-8">
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 py-12 px-4">
+      <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -35,22 +35,22 @@ export default function Home() {
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
             CaloriSnap
           </h1>
-          <p className="text-lg text-gray-600">
-            음식 사진을 업로드하면 칼로리를 계산해드립니다!
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            음식 사진을 업로드하면 AI가 자동으로 음식을 인식하고 칼로리를 계산해드립니다!
           </p>
         </motion.div>
 
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-8">
           <ImageUpload onImageSelect={handleImageSelect} />
 
           {isLoading && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-8 text-center"
+              className="text-center"
             >
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-              <p className="mt-2 text-gray-600">음식을 분석하고 있습니다...</p>
+              <p className="mt-4 text-gray-600">음식을 분석하고 있습니다...</p>
             </motion.div>
           )}
 
@@ -58,7 +58,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-8 p-4 bg-red-100 text-red-700 rounded-lg text-center"
+              className="p-4 bg-red-100 text-red-700 rounded-lg text-center"
             >
               {error}
             </motion.div>
@@ -68,7 +68,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-8 p-6 bg-white rounded-xl shadow-lg"
+              className="bg-white rounded-xl shadow-lg p-6"
             >
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                 분석 결과
