@@ -54,9 +54,9 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 py-12 px-4">
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 py-12 px-4 overflow-x-hidden">
       {isLoading && <LoadingOverlay />}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto overflow-x-hidden">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,8 +69,7 @@ export default function Home() {
             음식 사진을 업로드하면 AI가 자동으로 음식을 인식하고 칼로리를 계산해드립니다!
           </p>
         </motion.div>
-
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="max-w-2xl mx-auto space-y-8 overflow-x-hidden">
           {/* 업로드 박스: 분석 결과가 없을 때만 표시 */}
           {!(foodInfo && selectedImage && !isLoading) && (
             <ImageUpload onImageSelect={handleImageSelect} />
@@ -86,13 +85,13 @@ export default function Home() {
           )}
           {/* 분석 결과: 업로드 박스 대신 표시 */}
           {foodInfo && selectedImage && !isLoading && (
-            <div className="relative w-full flex flex-col items-center justify-center mt-8">
-              <div className="relative w-80 h-80 sm:w-48 sm:h-48 md:w-80 md:h-80 mx-auto">
+            <div className="relative w-full flex flex-col items-center justify-center mt-8 overflow-x-hidden">
+              <div className="relative w-80 h-80 sm:w-48 sm:h-48 md:w-80 md:h-80 max-w-full mx-auto overflow-x-visible">
                 {/* 음식 이미지 */}
                 <img
                   src={selectedImage}
                   alt={foodInfo.name}
-                  className="object-contain w-full h-full rounded-2xl border-4 border-white shadow-xl"
+                  className="object-contain w-full h-full rounded-2xl border-4 border-white shadow-xl max-w-full"
                   style={{ background: '#fff' }}
                 />
                 {/* 만화 스타일 말풍선들 */}
