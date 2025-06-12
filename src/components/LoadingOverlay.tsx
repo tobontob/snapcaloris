@@ -12,7 +12,7 @@ export default function LoadingOverlay() {
         AI가 열심히 음식 사진을 분석하고 있어요!
       </div>
       <div className="text-lg sm:text-base text-blue-100 text-center px-8 sm:px-4">
-        조금만 기다려 주세요, 맛있는 결과를 준비 중입니다 🍔🍕
+        조금만 기다려 주세요, 분석 결과를 준비 중입니다 🍔🍕
       </div>
     </motion.div>
   );
