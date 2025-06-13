@@ -101,6 +101,9 @@ export default function FoodRecognition() {
             <p className="text-lg">
               <span className="font-semibold">기준 분량:</span> {foodInfo.portion}
             </p>
+            <p className="text-lg">
+              <span className="font-semibold">인식 모델:</span> {foodInfo.source === 'clarifai' ? 'Clarifai 기본 모델' : '커스텀 모델'}
+            </p>
           </div>
         </div>
       )}
