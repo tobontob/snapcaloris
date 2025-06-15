@@ -1,106 +1,74 @@
 import { NextResponse } from 'next/server';
+import * as tf from '@tensorflow/tfjs-node';
 
-const CLARIFAI_USER_ID = 'clarifai';
-const CLARIFAI_APP_ID = 'main';
-const DEFAULT_MODEL_ID = 'food-item-recognition';
+// Food-101 모델 로드
+let food101Model: tf.GraphModel | null = null;
 
+async function loadFood101Model() {
+  if (!food101Model) {
+    food101Model = await tf.loadGraphModel('file:///models/food101/model.json');
+  }
+  return food101Model;
+}
+
+// Teachable Machine 모델 로드
+let teachableModel: tf.GraphModel | null = null;
+
+async function loadTeachableModel() {
+  if (!teachableModel) {
+    teachableModel = await tf.loadGraphModel('file:///models/teachable/model.json');
+  }
+  return teachableModel;
+}
+
+// 이미지 전처리 함수
+async function preprocessImage(base64Image: string) {
+  // base64 이미지를 텐서로 변환
+  const imageBuffer = Buffer.from(base64Image, 'base64');
+  const image = await tf.node.decodeImage(imageBuffer);
+  
+  // 이미지 크기 조정 및 정규화
+  const resized = tf.image.resizeBilinear(image, [224, 224]);
+  const normalized = resized.div(255.0);
+  
+  // 배치 차원 추가
+  const batched = normalized.expandDims(0);
+  
+  return batched;
+}
+
+// Food-101 모델로 예측
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { base64Image } = body;
-
-    if (!base64Image) {
-      return NextResponse.json({ error: '이미지가 필요합니다.' }, { status: 400 });
+    const { image } = await request.json();
+    
+    if (!image) {
+      return NextResponse.json({ error: '이미지가 제공되지 않았습니다.' }, { status: 400 });
     }
 
-    const CLARIFAI_PAT = process.env.NEXT_PUBLIC_CLARIFAI_PAT;
-    const CUSTOM_MODEL_ID = process.env.NEXT_PUBLIC_CUSTOM_MODEL_ID;
-    if (!CLARIFAI_PAT) {
-      return NextResponse.json({ error: 'Clarifai API 키가 설정되지 않았습니다.' }, { status: 500 });
-    }
-
-    const imageData = base64Image.split(',')[1] || base64Image;
-
-    const raw = JSON.stringify({
-      "user_app_id": {
-        "user_id": CLARIFAI_USER_ID,
-        "app_id": CLARIFAI_APP_ID
-      },
-      "inputs": [
-        {
-          "data": {
-            "image": {
-              "base64": imageData
-            }
-          }
-        }
-      ]
-    });
-
-    const requestOptions = {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Key ' + CLARIFAI_PAT
-      },
-      body: raw
-    };
-
-    // Clarifai 기본 모델 요청
-    const defaultModelPromise = fetch(
-      `https://api.clarifai.com/v2/models/${DEFAULT_MODEL_ID}/outputs`,
-      requestOptions
-    ).then(async (res) => {
-      const result = await res.json();
-      return {
-        ok: res.ok,
-        predictions: result.outputs?.[0]?.data?.concepts?.map((concept: any) => ({
-          name: concept.name,
-          probability: concept.value,
-          source: 'clarifai'
-        })) || [],
-        error: result.status?.description
-      };
-    });
-
-    // 커스텀 모델 요청 (ID가 있을 때만)
-    let customModelPromise = Promise.resolve({ ok: false, predictions: [], error: null });
-    if (CUSTOM_MODEL_ID) {
-      customModelPromise = fetch(
-        `https://api.clarifai.com/v2/models/${CUSTOM_MODEL_ID}/outputs`,
-        requestOptions
-      ).then(async (res) => {
-        const result = await res.json();
-        return {
-          ok: res.ok,
-          predictions: result.outputs?.[0]?.data?.concepts?.map((concept: any) => ({
-            name: concept.name,
-            probability: concept.value,
-            source: 'custom'
-          })) || [],
-          error: result.status?.description
-        };
-      });
-    }
-
-    // 두 모델 결과 병렬 요청
-    const [defaultResult, customResult] = await Promise.all([defaultModelPromise, customModelPromise]);
-
-    // 에러 처리: 둘 다 실패 시
-    if (!defaultResult.ok && !customResult.ok) {
-      return NextResponse.json({ error: defaultResult.error || customResult.error || 'Clarifai API 호출 실패' }, { status: 500 });
-    }
-
-    // 결과 합치기 및 확률순 정렬
-    const allPredictions = [...defaultResult.predictions, ...customResult.predictions]
-      .sort((a, b) => b.probability - a.probability);
-
-    if (!allPredictions.length) {
-      return NextResponse.json({ error: '음식을 인식할 수 없습니다.' }, { status: 400 });
-    }
-
-    return NextResponse.json({ predictions: allPredictions });
+    // 이미지 전처리
+    const preprocessedImage = await preprocessImage(image);
+    
+    // Food-101 모델 로드
+    const model = await loadFood101Model();
+    
+    // 예측
+    const predictions = await model.predict(preprocessedImage) as tf.Tensor;
+    const results = await predictions.data();
+    
+    // 결과 정리
+    const food101Results = Array.from(results).map((confidence, index) => ({
+      label: `food_${index}`, // 실제 라벨로 대체 필요
+      confidence: confidence
+    })).sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5); // 상위 5개 결과만 반환
+    
+    return NextResponse.json({ predictions: food101Results });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Clarifai API 호출 실패' }, { status: 500 });
+    console.error('Food-101 예측 중 오류:', error);
+    return NextResponse.json(
+      { error: error.message || 'Food-101 예측 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 } 

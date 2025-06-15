@@ -3,8 +3,24 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ImageUpload from '@/components/ImageUpload';
-import { classifyFood, type FoodInfo } from '@/lib/food-recognition';
+import { recognizeFood, type FoodInfo } from '@/lib/food-recognition';
 import LoadingOverlay from '@/components/LoadingOverlay';
+
+// File을 base64로 변환하는 유틸리티 함수
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('이미지 변환 실패'));
+      }
+    };
+    reader.onerror = () => reject(new Error('이미지 읽기 실패'));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function Home() {
   const [foodInfo, setFoodInfo] = useState<FoodInfo | null>(null);
@@ -17,8 +33,16 @@ export default function Home() {
       setIsLoading(true);
       setError(null);
       setSelectedImage(URL.createObjectURL(file));
-      const result = await classifyFood(file);
-      setFoodInfo(result);
+      // File을 base64로 변환
+      const base64 = await fileToBase64(file);
+      // recognizeFood 호출
+      const results = await recognizeFood(base64);
+      // 가장 확률 높은 결과만 사용
+      setFoodInfo(
+        results[0]
+          ? { ...results[0], probability: results[0].confidence }
+          : null
+      );
     } catch (err) {
       setError('음식을 분석하는 중 오류가 발생했습니다.');
       console.error(err);
