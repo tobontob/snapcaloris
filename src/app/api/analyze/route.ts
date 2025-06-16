@@ -26,7 +26,9 @@ export async function POST(request: Request) {
         }
 
         // 분석된 음식 이름으로 데이터베이스 검색
-        const foodMatch = await findExactFoodMatch(analysisResult.foodName);
+        const foodMatch = analysisResult.foodName
+          ? await findExactFoodMatch(analysisResult.foodName)
+          : null;
         
         if (foodMatch) {
             return NextResponse.json({
