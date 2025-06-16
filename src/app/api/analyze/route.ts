@@ -34,7 +34,7 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 success: true,
                 food: foodMatch,
-                confidence: foodMatch.similarity || analysisResult.confidence
+                confidence: analysisResult.confidence
             });
         } else {
             return NextResponse.json({
