@@ -3,8 +3,10 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ImageUpload from '@/components/ImageUpload';
-import { recognizeFood, type FoodInfo } from '@/lib/food-recognition';
+import { recognizeFood } from '@/lib/food-recognition';
+import { FoodRecognitionResult } from '@/types/food';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { findExactFoodMatch } from '@/utils/foodData';
 
 // File을 base64로 변환하는 유틸리티 함수
 function fileToBase64(file: File): Promise<string> {
@@ -27,27 +29,45 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [predictions, setPredictions] = useState<FoodRecognitionResult[]>([]);
 
   const handleImageSelect = async (file: File) => {
     try {
       setIsLoading(true);
       setError(null);
-      setSelectedImage(URL.createObjectURL(file));
-      // File을 base64로 변환
-      const base64 = await fileToBase64(file);
-      // recognizeFood 호출
-      const results = await recognizeFood(base64);
-      // 콘솔에 결과 출력
+      
+      // File을 URL로 변환
+      const imageUrl = URL.createObjectURL(file);
+      setSelectedImage(imageUrl);
+
+      // 이미지 엘리먼트 생성 및 로드
+      const img = new Image();
+      img.src = imageUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      // 이미지 분석
+      const results = await recognizeFood(img);
       console.log('AI 예측 결과:', results);
-      // 가장 확률 높은 결과만 사용
-      setFoodInfo(
-        results[0]
-          ? { ...results[0], probability: results[0].confidence }
-          : null
-      );
-    } catch (err) {
-      setError('음식을 분석하는 중 오류가 발생했습니다.');
-      console.error(err);
+      if (results && results.length > 0) {
+        // DB에서 칼로리/기준량 정보 찾기
+        const dbInfo = await findExactFoodMatch(results[0].name);
+        setFoodInfo({
+          name: results[0].name,
+          probability: results[0].confidence,
+          calories: dbInfo?.calories ?? 0,
+          portion: dbInfo?.serving_size ?? '정보 없음',
+          source: results[0].source
+        });
+      } else {
+        setFoodInfo(null);
+      }
+      setPredictions(results);
+    } catch (error) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : '음식 인식 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }

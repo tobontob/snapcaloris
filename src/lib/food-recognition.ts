@@ -3,6 +3,13 @@ import '@tensorflow/tfjs-backend-cpu';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import { findFoodInDatabase, type FoodData } from './food-database';
 import * as tf from '@tensorflow/tfjs';
+import { findExactFoodMatch } from '@/utils/foodData';
+import { FoodRecognitionResult } from '@/types/food';
+
+// Teachable Machine 클래스 목록
+const TEACHABLE_CLASSES = [
+  "떡볶이", "햄버거", "라면", "우동", "짜장면", "짬뽕", "피자", "냉면", "비빔밥", "삼겹살"
+];
 
 // 음식 인식 결과 타입 정의
 export interface FoodRecognitionResult {
@@ -230,99 +237,93 @@ async function predictWithFood101(base64Image: string): Promise<FoodRecognitionR
   }
 }
 
-// Teachable Machine 라벨 자동 로딩 함수
-let teachableLabels: string[] | null = null;
-async function getTeachableLabels() {
-  if (!teachableLabels) {
-    teachableLabels = await fetch('/models/teachable/metadata.json')
-      .then(res => res.json())
-      .then(meta => meta.labels);
-  }
-  return teachableLabels;
+// Teachable Machine 모델
+let teachableModel: tf.LayersModel | null = null;
+
+// 모델 초기화 함수
+async function initializeTeachableModel() {
+    if (!teachableModel) {
+        try {
+            console.log('Teachable Machine 모델 로드 시도');
+            const modelPath = `${window.location.origin}/models/teachable/model.json`;
+            teachableModel = await tf.loadLayersModel(modelPath);
+            console.log('Teachable Machine 모델 로드 성공:', teachableModel);
+        } catch (error) {
+            console.error('Teachable Machine 모델 로드 실패:', error);
+            throw new Error('Teachable Machine 모델을 로드할 수 없습니다.');
+        }
+    }
+    return teachableModel;
 }
 
 // Teachable Machine 모델로 예측
-let teachableModel: tf.GraphModel | tf.LayersModel | null = null;
-async function predictWithTeachable(base64Image: string): Promise<FoodRecognitionResult[]> {
-  try {
-    if (!teachableModel) {
-      await initializeTensorFlow();
-      try {
-        const modelPath = `${window.location.origin}/models/teachable/model.json`;
-        console.log('Teachable Machine 모델 로드 시도:', modelPath);
-        teachableModel = await loadModelAuto(modelPath);
-        console.log('Teachable Machine 모델 로드 성공:', teachableModel);
-      } catch (error) {
-        console.error('Teachable Machine 모델 로드 실패:', error);
-        throw new Error('Teachable Machine 모델을 로드할 수 없습니다.');
-      }
+async function predictWithTeachableMachine(imageElement: HTMLImageElement): Promise<FoodRecognitionResult[]> {
+    try {
+        console.log('Teachable Machine 예측 시작');
+        
+        // 모델 초기화 확인
+        if (!teachableModel) {
+            await initializeTeachableModel();
+        }
+        
+        if (!teachableModel) {
+            throw new Error('Teachable Machine 모델이 초기화되지 않았습니다.');
+        }
+        
+        // 이미지를 텐서로 변환
+        const imageTensor = tf.browser.fromPixels(imageElement)
+            .resizeBilinear([224, 224])
+            .expandDims(0)
+            .toFloat()
+            .div(255.0);
+
+        // 예측 수행
+        const predictions = await teachableModel.predict(imageTensor) as tf.Tensor;
+        const predictionArray = await predictions.array() as number[][];
+        
+        // 텐서 메모리 해제
+        tf.dispose([imageTensor, predictions]);
+
+        // 예측 결과를 클래스 이름과 함께 매핑
+        const results = predictionArray[0].map((confidence, index) => ({
+            name: TEACHABLE_CLASSES[index],
+            confidence,
+            calories: 0, // DB 매칭 없이 0으로 고정
+            portion: '정보 없음',
+            source: 'teachable' as const
+        }));
+
+        // 신뢰도 기준으로 정렬
+        const sortedResults = results.sort((a, b) => b.confidence - a.confidence);
+
+        // 상위 5개 결과만 선택
+        const topResults = sortedResults.slice(0, 5);
+
+        console.log('Teachable Machine 예측 성공:', topResults);
+        return topResults;
+
+    } catch (error) {
+        console.error('Teachable Machine 예측 중 오류 발생:', error);
+        throw error;
     }
-    // base64 -> 이미지 엘리먼트로 변환
-    const img = await loadImageFromBase64(base64Image);
-    // 전처리: 반드시 224x224로 리사이즈
-    let input = tf.browser.fromPixels(img).toFloat();
-    input = tf.image.resizeBilinear(input, [224, 224]);
-    input = input.div(tf.scalar(255));
-    input = input.expandDims(0); // 배치 차원 추가
-    // 예측
-    const prediction = (teachableModel as tf.LayersModel).predict(input) as tf.Tensor;
-    const data = await prediction.data();
-    tf.dispose([input, prediction]);
-    // 라벨 동적 매핑
-    const labels = await getTeachableLabels();
-    const results = Array.from(data).map((confidence, index) => {
-      const label = labels ? labels[index] ?? `class_${index}` : `class_${index}`;
-      const foodData = findFoodInDatabase(label);
-      return {
-        name: label,
-        confidence: confidence,
-        calories: foodData?.calories ?? 0,
-        portion: foodData?.portion ?? '',
-        source: 'teachable' as const
-      };
-    }).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
-    return results;
-  } catch (error) {
-    console.error('Teachable Machine 예측 중 오류:', error);
-    throw new Error('Teachable Machine 예측 중 오류가 발생했습니다.');
-  }
 }
 
 // 두 모델의 결과를 통합
-export async function recognizeFood(base64Image: string): Promise<FoodRecognitionResult[]> {
-  try {
-    // Food-101 예측 관련 코드는 주석 처리 (나중에 복구 가능)
-    /*
-    const results: FoodRecognitionResult[] = [];
-    // Food-101 예측 시도
+export async function recognizeFood(imageElement: HTMLImageElement): Promise<FoodRecognitionResult[]> {
     try {
-      console.log('Food-101 예측 시작');
-      const food101Results = await predictWithFood101(base64Image);
-      console.log('Food-101 예측 성공:', food101Results);
-      results.push(...food101Results);
+        // Teachable Machine으로 예측
+        const teachableResults = await predictWithTeachableMachine(imageElement);
+        console.log('Teachable Machine 예측 성공:', teachableResults);
+        
+        if (teachableResults.length === 0) {
+            throw new Error('음식 인식 결과가 없습니다.');
+        }
+        
+        return teachableResults;
     } catch (error) {
-      console.error('Food-101 예측 실패:', error);
-    }
-    */
-
-    // Teachable Machine 예측만 사용
-    try {
-      console.log('Teachable Machine 예측 시작');
-      const teachableResults = await predictWithTeachable(base64Image);
-      console.log('Teachable Machine 예측 성공:', teachableResults);
-      if (teachableResults.length === 0) {
+        console.error('Teachable Machine 예측 실패:', error);
         throw new Error('음식 인식에 실패했습니다.');
-      }
-      // Teachable Machine 결과만 반환
-      return teachableResults.sort((a, b) => b.confidence - a.confidence);
-    } catch (error) {
-      console.error('Teachable Machine 예측 실패:', error);
-      throw new Error('음식 인식에 실패했습니다.');
     }
-  } catch (error) {
-    console.error('음식 인식 중 오류:', error);
-    throw error;
-  }
 }
 
 export function calculatePortionCalories(baseCalories: number, portionSize: number) {
