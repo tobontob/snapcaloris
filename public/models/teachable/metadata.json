@@ -1,1 +1,1 @@
-{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-06-15T02:24:29.536Z","userMetadata":{},"modelName":"tm-my-image-model","labels":["떡볶이","햄버거"],"imageSize":224}
+{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-06-15T23:30:24.211Z","userMetadata":{},"modelName":"food-image-carlorie01","labels":["떡볶이","햄버거","라면","우동","짜장면","짬뽕","피자","냉면","비빔밥","삼겹살"],"imageSize":224}

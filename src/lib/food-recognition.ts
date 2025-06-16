@@ -159,39 +159,74 @@ async function predictWithFood101(base64Image: string): Promise<FoodRecognitionR
       img.onload = resolve;
       img.onerror = () => reject(new Error('이미지 로드 실패'));
     });
+    console.log('Food-101 이미지 로드 완료:', img.width, 'x', img.height);
 
-    // 이미지 -> 텐서 변환
+    // 이미지 -> 텐서 변환 및 전처리
     let input = tf.browser.fromPixels(img).toFloat();
     input = tf.image.resizeBilinear(input, [224, 224]);
+    
+    // 이미지 정규화 (ImageNet 평균값과 표준편차 사용)
+    const mean = tf.tensor1d([0.485, 0.456, 0.406]);
+    const std = tf.tensor1d([0.229, 0.224, 0.225]);
     input = input.div(255.0);
+    input = input.sub(mean).div(std);
     input = input.expandDims(0); // 배치 차원 추가
+    
+    console.log('Food-101 입력 텐서 shape:', input.shape);
 
     // 예측
     let predictions: tf.Tensor;
     if ('predict' in food101Model) {
+      console.log('Food-101 GraphModel 예측 시작');
       predictions = (food101Model as tf.GraphModel).predict(input) as tf.Tensor;
     } else {
+      console.log('Food-101 LayersModel 예측 시작');
       predictions = (food101Model as tf.LayersModel).predict(input) as tf.Tensor;
     }
+    console.log('Food-101 예측 텐서 shape:', predictions.shape);
+
+    // 예측 결과 처리
     const data = await predictions.data();
+    console.log('Food-101 예측 데이터 (원본):', data);
+    
+    // 최대값을 찾아 정규화
+    const maxValue = Math.max(...Array.from(data));
+    const normalizedData = Array.from(data).map(value => value / maxValue);
+    console.log('Food-101 예측 데이터 (정규화 후):', normalizedData);
+    
     tf.dispose([input, predictions]);
 
     // 라벨 불러오기
     const labels = await getFood101Labels();
+    console.log('Food-101 라벨 로드 완료:', labels);
+    if (!labels || labels.length === 0) {
+      throw new Error('Food-101 라벨을 불러올 수 없습니다.');
+    }
 
-    // 결과 매핑 (음식명 적용, null 안전 처리)
-    const results = Array.from(data).map((confidence, index) => ({
-      name: labels ? labels[index] ?? `food_${index}` : `food_${index}`,
-      confidence: confidence,
+    // 예측 결과와 라벨 매핑 (상위 5개 인덱스만 추출)
+    const topIndices = normalizedData
+      .map((confidence, index) => ({ confidence, index }))
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5);
+
+    const results = topIndices.map(({ confidence, index }) => ({
+      name: labels[index] ?? `food_${index}`,
+      confidence,
       calories: 0,
       portion: '',
       source: 'food101' as const
-    })).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+    }));
+
+    console.log('Food-101 최종 예측 결과:', results);
+
+    if (results.length === 0) {
+      throw new Error('Food-101 예측 결과가 없습니다.');
+    }
 
     return results;
   } catch (error) {
     console.error('Food-101 예측 중 오류:', error);
-    return [];
+    throw new Error('Food-101 예측 중 오류가 발생했습니다.');
   }
 }
 
@@ -235,13 +270,17 @@ async function predictWithTeachable(base64Image: string): Promise<FoodRecognitio
     tf.dispose([input, prediction]);
     // 라벨 동적 매핑
     const labels = await getTeachableLabels();
-    const results = Array.from(data).map((confidence, index) => ({
-      name: labels ? labels[index] ?? `class_${index}` : `class_${index}`,
-      confidence: confidence,
-      calories: 0,
-      portion: '',
-      source: 'teachable' as const
-    })).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+    const results = Array.from(data).map((confidence, index) => {
+      const label = labels ? labels[index] ?? `class_${index}` : `class_${index}`;
+      const foodData = findFoodInDatabase(label);
+      return {
+        name: label,
+        confidence: confidence,
+        calories: foodData?.calories ?? 0,
+        portion: foodData?.portion ?? '',
+        source: 'teachable' as const
+      };
+    }).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
     return results;
   } catch (error) {
     console.error('Teachable Machine 예측 중 오류:', error);
@@ -252,17 +291,37 @@ async function predictWithTeachable(base64Image: string): Promise<FoodRecognitio
 // 두 모델의 결과를 통합
 export async function recognizeFood(base64Image: string): Promise<FoodRecognitionResult[]> {
   try {
-    // Food-101 먼저 실행
-    const food101Results = await predictWithFood101(base64Image);
-    // Teachable Machine 그 다음 실행
-    const teachableResults = await predictWithTeachable(base64Image);
-    // 결과 통합 및 정렬
-    const combinedResults = [...food101Results, ...teachableResults]
-      .sort((a, b) => b.confidence - a.confidence);
-    return combinedResults;
+    // Food-101 예측 관련 코드는 주석 처리 (나중에 복구 가능)
+    /*
+    const results: FoodRecognitionResult[] = [];
+    // Food-101 예측 시도
+    try {
+      console.log('Food-101 예측 시작');
+      const food101Results = await predictWithFood101(base64Image);
+      console.log('Food-101 예측 성공:', food101Results);
+      results.push(...food101Results);
+    } catch (error) {
+      console.error('Food-101 예측 실패:', error);
+    }
+    */
+
+    // Teachable Machine 예측만 사용
+    try {
+      console.log('Teachable Machine 예측 시작');
+      const teachableResults = await predictWithTeachable(base64Image);
+      console.log('Teachable Machine 예측 성공:', teachableResults);
+      if (teachableResults.length === 0) {
+        throw new Error('음식 인식에 실패했습니다.');
+      }
+      // Teachable Machine 결과만 반환
+      return teachableResults.sort((a, b) => b.confidence - a.confidence);
+    } catch (error) {
+      console.error('Teachable Machine 예측 실패:', error);
+      throw new Error('음식 인식에 실패했습니다.');
+    }
   } catch (error) {
     console.error('음식 인식 중 오류:', error);
-    return [];
+    throw error;
   }
 }
 

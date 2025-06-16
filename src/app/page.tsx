@@ -37,6 +37,8 @@ export default function Home() {
       const base64 = await fileToBase64(file);
       // recognizeFood 호출
       const results = await recognizeFood(base64);
+      // 콘솔에 결과 출력
+      console.log('AI 예측 결과:', results);
       // 가장 확률 높은 결과만 사용
       setFoodInfo(
         results[0]
