@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ImageUpload from '@/components/ImageUpload';
-import { recognizeFood } from '@/lib/food-recognition';
+import { recognizeFood, FoodInfo } from '@/lib/food-recognition';
 import { FoodRecognitionResult } from '@/types/food';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { findExactFoodMatch } from '@/utils/foodData';
