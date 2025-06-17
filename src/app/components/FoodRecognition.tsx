@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { recognizeFood, FoodRecognitionResult } from '@/lib/food-recognition';
+import { recognizeFood } from '@/lib/food-recognition';
+import { FoodRecognitionResult } from '@/types/food';
 import Image from 'next/image';
 
 type FoodInfo = FoodRecognitionResult;
