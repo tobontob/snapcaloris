@@ -36,4 +36,5 @@ export interface FoodRecognitionResult {
     confidence: number;
     calories: number;
     portion: string;
+    source: 'food101' | 'teachable';
 } 

@@ -36,7 +36,14 @@ export default function FoodRecognition() {
       reader.onload = async () => {
         try {
           const base64Image = reader.result as string;
-          const results = await recognizeFood(base64Image);
+          // base64 문자열을 HTMLImageElement로 변환
+          const img = new window.Image();
+          img.src = base64Image;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          const results = await recognizeFood(img);
           
           if (results.length > 0) {
             const bestMatch = results[0];
