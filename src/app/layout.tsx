@@ -85,7 +85,6 @@ export const metadata: Metadata = {
   },
   verification: {
     google: 'your-google-site-verification',
-    daum: 'your-daum-site-verification',
   },
   metadataBase: new URL('https://snapcaloris.vercel.app'),
 };
