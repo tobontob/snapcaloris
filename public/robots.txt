@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://snapcaloris.vercel.app/sitemap.xml 

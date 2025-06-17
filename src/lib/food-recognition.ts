@@ -11,15 +11,6 @@ const TEACHABLE_CLASSES = [
   "떡볶이", "햄버거", "라면", "우동", "짜장면", "짬뽕", "피자", "냉면", "비빔밥", "삼겹살"
 ];
 
-// 음식 인식 결과 타입 정의
-export interface FoodRecognitionResult {
-  name: string;
-  confidence: number;
-  calories: number;
-  portion: string;
-  source: 'food101' | 'teachable';
-}
-
 // Food-101 모델 응답 타입
 interface Food101Response {
   predictions: {
